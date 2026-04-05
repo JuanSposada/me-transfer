@@ -1,0 +1,12 @@
+# Binarios
+bin/
+main
+*.exe
+*.dll
+
+# Dependencias y variables de entorno
+vendor/
+.env
+
+# Herramientas de sistema
+.DS_Store

@@ -1,0 +1,134 @@
+### Justificación de la Arquitectura
+Usaremos PostgreSQL como fuente de verdad rápida para consultas frecuentes (estado de tokens, expiración) debido a su baja latencia. Supabase se justifica como:
+
+Storage Engine: Para no saturar el servidor local con archivos binarios.
+
+Alta Disponibilidad: Si la DB local falla, la metadata en Supabase sirve como respaldo de desastre para reconstruir el estado del sistema.
+
+### Estructura Base del Proyecto (Go)
+Esta estructura sigue los estándares de la comunidad (golang-standards/project-layout) para que sea escalable y fácil de navegar en el repositorio.
+
+```plaintext
+go-transfer/
+├── cmd/
+│   └── api/
+│       └── main.go          # Punto de entrada de la aplicación
+├── internal/
+│   ├── api/
+│   │   ├── handlers/        # Lógica de los endpoints (Persona C)
+│   │   ├── middleware/      # Seguridad y validaciones (Persona C)
+│   │   └── routes.go        # Definición de rutas
+│   ├── config/
+│   │   └── config.go        # Carga de variables de entorno (.env)
+│   ├── models/
+│   │   └── file.go          # Estructuras de datos (Persona A)
+│   ├── repository/
+│   │   ├── postgres/        # Implementación DB Principal (Persona A)
+│   │   └── supabase/        # Cliente Supabase y Storage (Persona B)
+│   ├── service/
+│   │   └── file_service.go  # Lógica de negocio (une repo y cloud)
+│   └── worker/
+│       └── expiration.go    # Proceso de limpieza automática (Persona A)
+├── pkg/
+│   └── utils/               # Helpers (Hash, UUID, validadores)
+├── .env                     # Credenciales (Postgres_URL, Supabase_Key)
+├── go.mod
+└── README.md
+```
+
+### División de Tareas Equipo de 3
+
+---
+
+### Persona A Backend y Persistencia (PostgreSQL & Core)
+
+**Focus:** El corazón de los datos y la lógica de negocio.
+
+#### Responsabilidades
+- **Diseño de base de datos:** Crear el esquema en PostgreSQL.  
+  - **Tablas mínimas:** `files`, `tokens`.
+- **Capa de Datos:** Implementar el repositorio para PostgreSQL usando **sqlx** o **pgx**.
+- **Lógica de Expiración:** Desarrollar un Worker/Job interno en Go (usar `time.Ticker`) que:
+  - Busque archivos expirados.
+  - Marque registros para eliminación.
+- **Seguridad:** Implementar generación de tokens seguros (**UUID v4**) y validación de integridad.
+
+---
+
+### Persona B Especialista en Cloud e Integración (Supabase)
+
+**Focus:** Almacenamiento físico y sincronización externa.
+
+#### Responsabilidades
+- **Supabase Storage:** Configurar el bucket y desarrollar el cliente en Go para subir/descargar archivos.
+- **Sincronización de Metadata:** Al subir un archivo, guardar un backup de la metadata en Supabase según el requerimiento.
+- **Validación de Archivos:** Implementar filtros de seguridad:
+  - Validar **MIME types**.
+  - Detectar archivos ejecutables.
+  - Aplicar límite de tamaño.
+- **Logs:** Configurar sistema de logging que persista en Supabase.
+
+---
+
+### Persona C Desarrollador de API y Routing (Transporte)
+
+**Focus:** La cara pública del servicio y la orquestación.
+
+#### Responsabilidades
+- **Servidor Web:** Configurar el router (ej. **Gin**, **Echo** o **Chi**).
+- **Endpoints:** Implementar handlers:
+  - `POST /upload`
+  - `GET /download/{token}`
+  - `GET /file/{token}`
+- **Middleware:** Crear middlewares para:
+  - Manejo de errores.
+  - Recuperación de pánicos.
+  - Límites de tamaño de request.
+- **Orquestación:** Integrar y orquestar los servicios provistos por **Persona A** y **Persona B** dentro de los handlers.
+
+---
+
+### Notas Operativas Rápidas
+- **Comunicación:** Mantener sincronía diaria breve entre A, B y C para evitar solapamientos.
+- **Pruebas:** Definir pruebas end-to-end que cubran flujo de upload → metadata backup → storage → expiración → eliminación.
+- **Seguridad:** Revisar permisos de buckets y accesos a la base de datos antes de desplegar a producción.
+
+
+
+### Prompt para importar en cuaolquier Modelo de IA para continuar con el mismo hilo:
+
+📋 Resumen del Proyecto: Go-Transfer (Clon WeTransfer)
+Objetivo: Desarrollar una app web de transferencia de archivos en Go.
+Arquitectura:
+
+DB Principal: PostgreSQL (Información de archivos, tokens, expiración).
+
+DB Secundaria/Cloud: Supabase (Backup de metadatos, Logs y Supabase Storage para archivos físicos).
+
+Justificación: PostgreSQL para latencia mínima en metadata activa; Supabase para escalabilidad de archivos y respaldo de desastre.
+
+División de Tareas (Equipo de 3):
+
+Persona A (Backend & Core): Esquema Postgres, lógica de repositorio, worker de expiración automática y tokens seguros.
+
+Persona B (Cloud & Storage): Integración con Supabase Storage, validación de archivos (MIME, size), logging en la nube.
+
+Persona C (API & Routing): Servidor HTTP (Gin/Echo), middlewares de seguridad, endpoints POST /upload, GET /download/{token}, GET /file/{token}.
+
+Estructura del Proyecto:
+
+Plaintext
+go-transfer/
+├── cmd/api/main.go          # Punto de entrada
+├── internal/
+│   ├── api/handlers/        # Persona C
+│   ├── models/              # Persona A
+│   ├── repository/          # Persona A (PG) y Persona B (Supabase)
+│   ├── service/             # Lógica de negocio
+│   └── worker/              # Limpieza (Persona A)
+├── pkg/utils/               # Helpers
+└── .env                     # Configuración
+
+Seguridad Obligatoria: Validación MIME, protección Path Traversal, bloqueo de ejecutables, límite de tamaño por request, UUIDs para tokens.
+
+
