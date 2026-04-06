@@ -97,6 +97,7 @@ go-transfer/
 
 ### Prompt para importar en cuaolquier Modelo de IA para continuar con el mismo hilo:
 
+```plaintext
 📋 Resumen del Proyecto: Go-Transfer (Clon WeTransfer)
 Objetivo: Desarrollar una app web de transferencia de archivos en Go.
 Arquitectura:
@@ -117,7 +118,6 @@ Persona C (API & Routing): Servidor HTTP (Gin/Echo), middlewares de seguridad, e
 
 Estructura del Proyecto:
 
-Plaintext
 go-transfer/
 ├── cmd/api/main.go          # Punto de entrada
 ├── internal/
@@ -129,6 +129,89 @@ go-transfer/
 ├── pkg/utils/               # Helpers
 └── .env                     # Configuración
 
+
 Seguridad Obligatoria: Validación MIME, protección Path Traversal, bloqueo de ejecutables, límite de tamaño por request, UUIDs para tokens.
 
+```
 
+
+# 🚀 Me-Transfer Backend
+
+Sistema de transferencia de archivos con almacenamiento en Supabase y persistencia en PostgreSQL.
+
+---
+
+## 🛠️ Estado del Proyecto: Hito 1 & 2 (Persona A) (Sebastian)
+
+La **Infraestructura Base** y la **Capa de Datos** ya están configuradas y listas para su integración con los servicios de almacenamiento (Persona B) y la API (Persona C).
+
+### ✅ Logros Actuales:
+* **Contenedorización**: PostgreSQL 15 configurado mediante Docker Compose.
+* **Esquema de Datos**: Tablas `files` y `tokens` automatizadas con soporte para UUID.
+* **Modelos de Dominio**: Structs en Go (`FileMetadata`, `Token`) que actúan como contrato de datos.
+* **Capa de Repositorio**: Implementación del patrón *Repository* con `pgxpool` para una gestión eficiente de conexiones.
+
+---
+
+## 📂 Estructura de la Capa de Datos
+
+```text
+me-transfer/
+├── internal/
+│   ├── models/           # Definición de "Objetos" (Structs)
+│   │   └── file.go
+│   └── repository/       # Interfaces (Contratos) e Implementación
+│       ├── repository.go # <-- Persona C: Usar esta interfaz
+│       └── postgres/     # Lógica SQL específica
+│           ├── db.go
+│           └── file_pg.go
+├── migrations/           # Scripts de inicialización SQL
+└── docker-compose.yml    # Orquestación de servicios
+```
+
+## 🚀 Guía de Inicio Rápido
+1. **Levantar Base de Datos** 
+Asegúrate de tener Docker instalado y ejecuta:
+
+```bash
+docker compose up -d
+
+```
+2. **Configuración del Entorno (.env)**
+Crea un archivo .env basado en el siguiente ejemplo para que el backend pueda conectar con el contenedor:
+
+```env
+# Database Config
+DB_HOST=localhost
+DB_PORT=5432
+DB_USER=admin_me_transfer
+DB_PASSWORD=admin_pass
+DB_NAME=me_transfer_db
+
+# Connection String para el Driver pgx
+POSTGRES_URL=postgres://admin_me_transfer:admin_pass@localhost:5432/me_transfer_db?sslmode=disable
+```
+
+3. **Verificar Tablas**
+Puedes comprobar que el esquema se cargó correctamente ejecutando:
+```bash
+docker exec -it me_transfer_db psql -U admin_me_transfer -d me_transfer_db -c "\dt"
+```
+
+## 📋 Roadmap para el Equipo
+### ☁️ Persona B (Supabase & Storage)
+- Implementar el cliente de Supabase en internal/storage.
+
+- Objetivo: Crear la función de subida que reciba el buffer del archivo y devuelva el supabase_path.
+
+### 🌐 Persona C (API & Handlers)
+- Configurar el servidor (Gin/Echo) y los endpoints.
+
+- Objetivo: Implementar POST /upload.
+
+- Flujo: Recibir MultiPart File -> Llamar a Persona B (Upload) -> Llamar a Persona A (CreateFile).
+
+### 🛠️ Comandos de Desarrollo
+- Instalar dependencias: `go mod tidy`
+
+- Correr en modo desarrollo: `go run cmd/api/main.go` (una vez creado)
