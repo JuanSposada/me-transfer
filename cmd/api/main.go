@@ -6,37 +6,40 @@ import (
 	"os"
 
 	"github.com/JuanSposada/me-transfer/internal/repository/postgres"
+	"github.com/JuanSposada/me-transfer/internal/storage" // Asegúrate de que este import exista
 	"github.com/joho/godotenv"
 )
 
 func main() {
-	// 1. Cargar variables de entorno
+	// 1. Cargar entorno
 	if err := godotenv.Load(); err != nil {
-		log.Println("⚠️ No se encontró archivo .env, usando variables de sistema")
+		log.Println("⚠️ Usando variables de entorno del sistema")
 	}
 
-	// 2. Obtener URL de conexión
+	// 2. Inicializar DB (Postgres)
 	connStr := os.Getenv("POSTGRES_URL")
-	if connStr == "" {
-		log.Fatal("❌ La variable POSTGRES_URL no está definida")
-	}
-
-	// 3. Inicializar el Repositorio de Postgres (Tu trabajo previo)
 	repo, err := postgres.NewPostgresRepo(connStr)
 	if err != nil {
-		log.Fatalf("❌ No se pudo conectar a la DB: %v", err)
+		log.Fatalf("❌ Error DB: %v", err)
 	}
-	defer repo.Pool.Close()
+	defer repo.Pool.Close() // Importante para cerrar conexiones al apagar
 
-	// 4. Verificar conexión (Ping)
+	// 3. Inicializar Storage (Supabase)
+	// Aquí inyectamos las llaves que vas a crear ahora
+	storageSvc := storage.NewSupabaseStorage(
+		os.Getenv("SUPABASE_URL"),
+		os.Getenv("SUPABASE_KEY"),
+		os.Getenv("SUPABASE_BUCKET"),
+	)
+	_ = storageSvc // Para evitar error de variable no usada, lo usaremos en Persona B
+
+	// 4. Verificación final
 	if err := repo.Pool.Ping(context.Background()); err != nil {
 		log.Fatalf("❌ La DB no responde: %v", err)
 	}
 
-	log.Println("✅ Infraestructura lista: PostgreSQL conectado correctamente")
+	log.Println("✅ INFRAESTRUCTURA COMPLETA: Postgres y Supabase configurados.")
 
-	// --- AQUÍ ENTRARÁN LA PERSONA B Y C ---
-	// Persona B: storageService := supabase.NewStorage(...)
-	// Persona C: server := api.NewServer(repo, storageService)
-	// server.Start()
+	// Bloqueo para que no se cierre el programa (Temporal hasta que Persona C ponga la API)
+	select {}
 }
