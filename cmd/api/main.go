@@ -1,33 +1,42 @@
 package main
 
 import (
+	"context"
 	"log"
-	"net/http"
+	"os"
 
-	"github.com/gin-gonic/gin" // O el router que prefieran
+	"github.com/JuanSposada/me-transfer/internal/repository/postgres"
+	"github.com/joho/godotenv"
 )
 
 func main() {
-	router := gin.Default()
-
-	// Configurar límite de memoria para uploads (ej: 32 MiB)
-	router.MaxMultipartMemory = 32 << 20 
-
-	// Grupo de rutas API
-	api := router.Group("/api")
-	{
-		api.POST("/upload", func(c *gin.Context) {
-			c.JSON(http.StatusOK, gin.H{"message": "Upload endpoint ready"})
-		})
-		api.GET("/download/:token", func(c *gin.Context) {
-			token := c.Param("token")
-			c.JSON(http.StatusOK, gin.H{"token": token})
-		})
-		api.GET("/file/:token", func(c *gin.Context) {
-			c.JSON(http.StatusOK, gin.H{"status": "info"})
-		})
+	// 1. Cargar variables de entorno
+	if err := godotenv.Load(); err != nil {
+		log.Println("⚠️ No se encontró archivo .env, usando variables de sistema")
 	}
 
-	log.Println("Servidor iniciado en :8080")
-	router.Run(":8080")
+	// 2. Obtener URL de conexión
+	connStr := os.Getenv("POSTGRES_URL")
+	if connStr == "" {
+		log.Fatal("❌ La variable POSTGRES_URL no está definida")
+	}
+
+	// 3. Inicializar el Repositorio de Postgres (Tu trabajo previo)
+	repo, err := postgres.NewPostgresRepo(connStr)
+	if err != nil {
+		log.Fatalf("❌ No se pudo conectar a la DB: %v", err)
+	}
+	defer repo.Pool.Close()
+
+	// 4. Verificar conexión (Ping)
+	if err := repo.Pool.Ping(context.Background()); err != nil {
+		log.Fatalf("❌ La DB no responde: %v", err)
+	}
+
+	log.Println("✅ Infraestructura lista: PostgreSQL conectado correctamente")
+
+	// --- AQUÍ ENTRARÁN LA PERSONA B Y C ---
+	// Persona B: storageService := supabase.NewStorage(...)
+	// Persona C: server := api.NewServer(repo, storageService)
+	// server.Start()
 }
