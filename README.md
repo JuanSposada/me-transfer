@@ -273,3 +273,23 @@ Inicializa el Pool de PostgreSQL.
 1. **Claridad de límites**: Le dejas claro a la Persona B que su terreno es `internal/storage`.
 2. **Contrato definido**: Ella ya sabe que su función `Upload` debe devolver un `string` (el path) y un `error`.
 3. **Dependencias**: Ya sabe que debe usar el paquete de `storage-go`.
+
+---
+
+## 🏗️ Estado de la Infraestructura (Abril  8, 2026)
+
+La fase de cimentación ha sido completada exitosamente. El proyecto cuenta con una arquitectura desacoplada basada en interfaces.
+
+### ⚙️ Servicios Configurados
+1.  **Motor de Base de Datos**: PostgreSQL corriendo sobre Docker (Puerto 5432).
+2.  **Persistencia**: Capa de repositorio implementada en `internal/repository/postgres`. Soporta operaciones de creación y consulta de metadatos de archivos.
+3.  **Storage Service**: Integración con Supabase Storage lista. El cliente se inicializa globalmente y está disponible para la lógica de negocio.
+
+### 🛠️ Roadmap de Integración
+- [ ] **Persona B (Storage Specialist)**: Implementar métodos `Upload` y `GetSignedURL` en `internal/storage/supabase.go`.
+- [ ] **Persona C (API Developer)**: Crear servidor HTTP y endpoints para recibir archivos (Multipart Form) y coordinar los servicios de Storage y Repository.
+
+### 🚀 Cómo arrancar
+1. Levantar DB: `docker compose up -d`
+2. Configurar `.env` con las llaves de Supabase.
+3. Ejecutar: `go run cmd/api/main.go`
