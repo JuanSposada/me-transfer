@@ -215,3 +215,61 @@ docker exec -it me_transfer_db psql -U admin_me_transfer -d me_transfer_db -c "\
 - Instalar dependencias: `go mod tidy`
 
 - Correr en modo desarrollo: `go run cmd/api/main.go` (una vez creado)
+
+
+
+# Actualizacion 4/8/2026
+## 📂 Estructura de Servicios (Actualizada)
+
+Hemos separado la persistencia de datos del almacenamiento de archivos físicos siguiendo principios de Clean Architecture:
+
+```text
+internal/
+├── repository/       # Capa de DATOS (PostgreSQL) - Metadata y Tokens
+└── storage/          # Capa de ARCHIVOS (Supabase) - Blobs/Binarios
+    ├── storage.go    # Interfaz/Contrato de Almacenamiento
+    └── supabase.go   # Implementación del cliente de Supabase
+
+```
+
+## ☁️ Guía para Persona B (Storage Service)
+Se ha dejado preparado el cliente de Supabase para que puedas empezar directamente con la lógica de negocio.
+
+1. Variables de Entorno Necesarias
+
+Asegúrate de configurar estas llaves en tu .env:
+
+Fragmento de código
+SUPABASE_URL=[https://tu-proyecto.supabase.co](https://tu-proyecto.supabase.co)
+SUPABASE_KEY=tu-service-role-key-secreta
+SUPABASE_BUCKET=me-transfer-files
+
+2. Implementación del Cliente
+El archivo internal/storage/supabase.go ya cuenta con la inicialización del SDK oficial:
+
+SDK utilizado: github.com/supabase-community/storage-go
+
+Misión: Implementar los métodos Upload y GetSignedURL utilizando el cliente s.client.
+
+3. El Contrato (Interfaz)
+Cualquier método que desarrolles debe cumplir con la interfaz StorageService en internal/storage/storage.go. Esto permitirá que la Persona C (API) llame a tus funciones de la siguiente manera:
+
+```Go
+// Ejemplo de uso para Persona C
+path, err := storageService.Upload(ctx, "archivo.pdf", reader)
+```
+
+# 🛠️ Integración del Sistema (Main)
+El archivo `cmd/api/main.go` ya realiza el "Wire-up" inicial:
+
+Carga el `.env.`
+
+Inicializa el Pool de PostgreSQL.
+
+(Pendiente) Inicializar el StorageService para pasarlo a los Handlers.
+
+
+### ¿Por qué agregamos esto?
+1. **Claridad de límites**: Le dejas claro a la Persona B que su terreno es `internal/storage`.
+2. **Contrato definido**: Ella ya sabe que su función `Upload` debe devolver un `string` (el path) y un `error`.
+3. **Dependencias**: Ya sabe que debe usar el paquete de `storage-go`.
