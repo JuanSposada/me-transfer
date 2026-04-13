@@ -2,6 +2,7 @@ package storage
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
@@ -51,13 +52,9 @@ func (s *SupabaseStorage) Upload(ctx context.Context, fileName string, content i
 	return fileName, nil
 }
 
-// Estos los dejaremos vacíos por ahora para que compile y pasar a la Persona C
 func (s *SupabaseStorage) GetSignedURL(ctx context.Context, fileName string) (string, error) {
-	// Supabase requiere un POST a esta ruta para generar la URL firmada
 	fullURL := fmt.Sprintf("%s/storage/v1/object/sign/%s/%s", s.url, s.bucket, fileName)
-
-	// Cuerpo de la petición: cuánto tiempo durará el link (en segundos)
-	body := strings.NewReader(`{"expiresIn": 3600}`) // 1 hora
+	body := strings.NewReader(`{"expiresIn": 3600}`)
 
 	req, err := http.NewRequestWithContext(ctx, "POST", fullURL, body)
 	if err != nil {
@@ -75,11 +72,30 @@ func (s *SupabaseStorage) GetSignedURL(ctx context.Context, fileName string) (st
 	}
 	defer resp.Body.Close()
 
-	// Aquí Supabase devuelve un JSON con el campo "signedURL"
-	// Por ahora, para no complicar el parseo de JSON, si el status es 200,
-	// lo ideal es leer el body.
-	// Pero vamos a simplificarlo para que la Persona C lo maneje.
-	return fullURL, nil
+	// --- 1. Definimos la estructura para capturar el JSON ---
+	var result struct {
+		SignedURL string `json:"signedURL"`
+	}
+
+	// --- 2. Decodificamos el cuerpo de la respuesta en la variable 'result' ---
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		return "", fmt.Errorf("error decodificando respuesta de Supabase: %v", err)
+	}
+
+	// 1. Limpiamos la URL base (quitamos barras al final)
+	baseURL := strings.TrimRight(s.url, "/")
+
+	// 2. Verificamos si result.SignedURL ya trae el prefijo /storage/v1
+	// Supabase a veces devuelve solo /object/sign/...
+	signedPath := result.SignedURL
+	if !strings.HasPrefix(signedPath, "/storage/v1") {
+		signedPath = "/storage/v1" + signedPath
+	}
+
+	// 3. Unimos todo
+	fullSignedURL := baseURL + signedPath
+
+	return fullSignedURL, nil
 }
 
 func (s *SupabaseStorage) DeleteFile(ctx context.Context, supabasePath string) error {
