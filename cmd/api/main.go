@@ -5,9 +5,13 @@ import (
 	"log"
 	"os"
 
-	"github.com/JuanSposada/me-transfer/internal/repository/postgres"
-	"github.com/JuanSposada/me-transfer/internal/storage" // Asegúrate de que este import exista
+	"github.com/gin-gonic/gin"
 	"github.com/joho/godotenv"
+
+	"github.com/JuanSposada/me-transfer/internal/api/handlers"
+	"github.com/JuanSposada/me-transfer/internal/repository/postgres"
+	"github.com/JuanSposada/me-transfer/internal/service"
+	"github.com/JuanSposada/me-transfer/internal/storage"
 )
 
 func main() {
@@ -22,24 +26,46 @@ func main() {
 	if err != nil {
 		log.Fatalf("❌ Error DB: %v", err)
 	}
-	defer repo.Pool.Close() // Importante para cerrar conexiones al apagar
+	defer repo.Pool.Close()
 
 	// 3. Inicializar Storage (Supabase)
-	// Aquí inyectamos las llaves que vas a crear ahora
 	storageSvc := storage.NewSupabaseStorage(
 		os.Getenv("SUPABASE_URL"),
 		os.Getenv("SUPABASE_KEY"),
 		os.Getenv("SUPABASE_BUCKET"),
 	)
-	_ = storageSvc // Para evitar error de variable no usada, lo usaremos en Persona B
 
-	// 4. Verificación final
+	// 4. Verificar conexión DB
 	if err := repo.Pool.Ping(context.Background()); err != nil {
 		log.Fatalf("❌ La DB no responde: %v", err)
 	}
 
-	log.Println("✅ INFRAESTRUCTURA COMPLETA: Postgres y Supabase configurados.")
+	// 5. Inicializar Service (LÓGICA DE NEGOCIO)
+	fileService := service.NewFileService(repo, storageSvc)
 
-	// Bloqueo para que no se cierre el programa (Temporal hasta que Persona C ponga la API)
-	select {}
+	// 6. Inicializar Handler (TU CAPA)
+	fileHandler := handlers.NewFileHandler(fileService)
+
+	// 7. Configurar Gin
+	router := gin.Default()
+
+	// Limitar tamaño de archivos (ej: 10MB)
+	router.MaxMultipartMemory = 10 << 20
+
+	// 8. Definir rutas
+	router.POST("/upload", fileHandler.Upload)
+	router.GET("/download/:token", fileHandler.Download)
+	router.GET("/file/:token", fileHandler.GetFile)
+
+	// 9. Levantar servidor
+	port := os.Getenv("PORT")
+	if port == "" {
+		port = "8080"
+	}
+
+	log.Printf("🚀 Server running on http://localhost:%s\n", port)
+
+	if err := router.Run(":" + port); err != nil {
+		log.Fatalf("❌ Error al iniciar servidor: %v", err)
+	}
 }
