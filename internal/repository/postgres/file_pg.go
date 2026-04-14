@@ -68,11 +68,10 @@ func (r *PostgresRepo) CreateToken(ctx context.Context, token *models.Token) err
 func (r *PostgresRepo) GetExpiredFiles(ctx context.Context) ([]models.FileMetadata, error) {
 	var expiredFiles []models.FileMetadata
 
-	// Buscamos archivos creados hace más de 24 horas que sigan 'active'
 	query := `
         SELECT id, supabase_path 
         FROM files 
-        WHERE created_at < NOW() - INTERVAL '24 hours' AND status = 'active'`
+        WHERE created_at < NOW() - INTERVAL '24 hours'`
 
 	rows, err := r.Pool.Query(ctx, query)
 	if err != nil {

@@ -29,6 +29,7 @@ func (w *CleanupWorker) Start(ctx context.Context) {
 	log.Println("🚀 Worker de limpieza iniciado...")
 
 	go func() {
+		w.runCleanup(ctx)
 		for {
 			select {
 			case <-ticker.C:
@@ -52,9 +53,10 @@ func (w *CleanupWorker) runCleanup(ctx context.Context) {
 
 	for _, file := range expired {
 		// 1. Borrar de Supabase
+		log.Printf("🛠️ Intentando borrar de Supabase: %s", file.SupabasePath)
 		if err := w.storage.DeleteFile(ctx, file.SupabasePath); err != nil {
 			log.Printf("⚠️ No se pudo borrar de Supabase [%s]: %v", file.SupabasePath, err)
-			continue
+
 		}
 
 		// 2. Borrar de Postgres

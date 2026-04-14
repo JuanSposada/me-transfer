@@ -99,20 +99,19 @@ func (s *SupabaseStorage) GetSignedURL(ctx context.Context, fileName string) (st
 }
 
 func (s *SupabaseStorage) DeleteFile(ctx context.Context, supabasePath string) error {
-	// La ruta para borrar es /storage/v1/object/nombre-bucket
+	// La URL para borrado múltiple es correcta
 	fullURL := fmt.Sprintf("%s/storage/v1/object/%s", s.url, s.bucket)
 
-	// Supabase espera un JSON con la lista de archivos a borrar en el cuerpo
-	// Ejemplo: {"prefixes": ["archivo.txt"]}
+	// CAMBIO AQUÍ: Usamos "prefixes" pero asegúrate de que el path sea el exacto
+	// Si sigue fallando, la API de Supabase prefiere "filenames" para archivos individuales
 	payload := fmt.Sprintf(`{"prefixes": ["%s"]}`, supabasePath)
 	body := strings.NewReader(payload)
 
 	req, err := http.NewRequestWithContext(ctx, "DELETE", fullURL, body)
 	if err != nil {
-		return fmt.Errorf("error creando petición de borrado: %v", err)
+		return err
 	}
 
-	// Headers de seguridad
 	req.Header.Set("Authorization", "Bearer "+s.key)
 	req.Header.Set("apiKey", s.key)
 	req.Header.Set("Content-Type", "application/json")
@@ -120,12 +119,12 @@ func (s *SupabaseStorage) DeleteFile(ctx context.Context, supabasePath string) e
 	client := &http.Client{}
 	resp, err := client.Do(req)
 	if err != nil {
-		return fmt.Errorf("error enviando petición de borrado: %v", err)
+		return err
 	}
 	defer resp.Body.Close()
 
-	// Supabase devuelve 200 aunque el array de respuesta indique si falló algo específico,
-	// pero para nuestro Worker, con que la petición salga bien es suficiente.
+	// IMPORTANTE: Supabase devuelve un array de objetos en el body indicando
+	// qué se borró y qué no. Vamos a leerlo para debuguear si falla.
 	if resp.StatusCode != http.StatusOK {
 		respBody, _ := io.ReadAll(resp.Body)
 		return fmt.Errorf("error al borrar en supabase (status %d): %s", resp.StatusCode, string(respBody))

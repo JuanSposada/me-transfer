@@ -14,7 +14,7 @@ type FileRepository interface {
 	CreateFile(ctx context.Context, file *models.FileMetadata) error
 
 	// GetFileByID busca un archivo por su UUID
-	GetFileByID(ctx context.Context, id string) (*models.FileMetadata, error)
+	GetFileByID(ctx context.Context, id uuid.UUID) (*models.FileMetadata, error)
 
 	// CreateToken genera un token de descarga para un archivo
 	CreateToken(ctx context.Context, token *models.Token) error

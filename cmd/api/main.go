@@ -9,6 +9,7 @@ import (
 	"github.com/JuanSposada/me-transfer/internal/api/middleware"
 	"github.com/JuanSposada/me-transfer/internal/repository/postgres"
 	"github.com/JuanSposada/me-transfer/internal/storage"
+	"github.com/JuanSposada/me-transfer/internal/worker"
 	"github.com/gin-gonic/gin" // Importante: go get github.com/gin-gonic/gin
 	"github.com/joho/godotenv"
 )
@@ -71,6 +72,8 @@ func main() {
 	// En tu main.go, dentro de la función main:
 	r.GET("/download/:id", fileHandler.Download)
 
+	cleanWorker := worker.NewCleanupWorker(repo, storageSvc)
+	cleanWorker.Start(context.Background()) // Esto arranca el bucle en segundo plano
 	// 8. Arrancar el servidor
 	log.Println("🚀 API corriendo en http://localhost:8080")
 	if err := r.Run(":8080"); err != nil {
