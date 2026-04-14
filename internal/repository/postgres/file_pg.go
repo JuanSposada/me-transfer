@@ -5,37 +5,36 @@ import (
 
 	"github.com/JuanSposada/me-transfer/internal/models"
 
-	"fmt"
+	"github.com/google/uuid"
 )
 
 // CreateFile guarda la metadata que le pase la Persona B o C
 func (r *PostgresRepo) CreateFile(ctx context.Context, file *models.FileMetadata) error {
 	query := `
-		INSERT INTO files (filename, size, content_type, supabase_path)
-		VALUES ($1, $2, $3, $4)
-		RETURNING id, created_at, status
-	`
+        INSERT INTO files (id, filename, size, content_type, supabase_path, status, created_at)
+        VALUES ($1, $2, $3, $4, $5, $6, $7)
+    `
 
-	// Ejecutamos y "escaneamos" los valores que genera la DB (ID y Fecha)
-	// de vuelta a nuestro struct de Go
-	return r.Pool.QueryRow(ctx, query,
-		file.Filename,
-		file.Size,
-		file.ContentType,
-		file.SupabasePath,
-	).Scan(&file.ID, &file.CreatedAt, &file.Status)
+	// Ahora enviamos TODOS los campos, incluido el ID que ya generamos en el Handler
+	_, err := r.Pool.Exec(ctx, query,
+		file.ID,           // $1 (El UUID que ya creamos)
+		file.Filename,     // $2
+		file.Size,         // $3
+		file.ContentType,  // $4
+		file.SupabasePath, // $5
+		file.Status,       // $6
+		file.CreatedAt,    // $7
+	)
 
+	return err
 }
 
 // GetFileByID busca un archivo por su UUID en la tabla 'files'
-func (r *PostgresRepo) GetFileByID(ctx context.Context, id string) (*models.FileMetadata, error) {
-	query := `
-		SELECT id, filename, size, content_type, supabase_path, status, created_at
-		FROM files
-		WHERE id = $1
-	`
-
+func (r *PostgresRepo) GetFileByID(ctx context.Context, id uuid.UUID) (*models.FileMetadata, error) {
 	var file models.FileMetadata
+	query := `SELECT id, filename, size, content_type, supabase_path, status, created_at 
+              FROM files WHERE id = $1`
+
 	err := r.Pool.QueryRow(ctx, query, id).Scan(
 		&file.ID,
 		&file.Filename,
@@ -45,11 +44,9 @@ func (r *PostgresRepo) GetFileByID(ctx context.Context, id string) (*models.File
 		&file.Status,
 		&file.CreatedAt,
 	)
-
 	if err != nil {
-		return nil, fmt.Errorf("archivo no encontrado: %w", err)
+		return nil, err
 	}
-
 	return &file, nil
 }
 
@@ -66,4 +63,34 @@ func (r *PostgresRepo) CreateToken(ctx context.Context, token *models.Token) err
 		token.FileID,
 		token.ExpiresAt,
 	).Scan(&token.ID, &token.CreatedAt)
+}
+
+func (r *PostgresRepo) GetExpiredFiles(ctx context.Context) ([]models.FileMetadata, error) {
+	var expiredFiles []models.FileMetadata
+
+	// Buscamos archivos creados hace más de 24 horas que sigan 'active'
+	query := `
+        SELECT id, supabase_path 
+        FROM files 
+        WHERE created_at < NOW() - INTERVAL '24 hours' AND status = 'active'`
+
+	rows, err := r.Pool.Query(ctx, query)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var f models.FileMetadata
+		if err := rows.Scan(&f.ID, &f.SupabasePath); err != nil {
+			continue
+		}
+		expiredFiles = append(expiredFiles, f)
+	}
+	return expiredFiles, nil
+}
+
+func (r *PostgresRepo) DeleteFileRecord(ctx context.Context, id uuid.UUID) error {
+	_, err := r.Pool.Exec(ctx, "DELETE FROM files WHERE id = $1", id)
+	return err
 }

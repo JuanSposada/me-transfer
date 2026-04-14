@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Me-Transfer | Envíos Seguros</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-slate-900 text-white min-h-screen flex items-center justify-center p-6">
+
+    <div class="max-w-md w-full space-y-8 bg-slate-800 p-8 rounded-2xl shadow-2xl border border-slate-700">
+        <div class="text-center">
+            <h1 class="text-4xl font-bold text-blue-400">Me-Transfer</h1>
+            <p class="text-slate-400 mt-2">Sube archivos (max 5MB) y compártelos.</p>
+        </div>
+
+        <div class="space-y-4">
+            <div id="dropzone" class="border-2 border-dashed border-slate-600 rounded-xl p-8 text-center hover:border-blue-500 transition-colors cursor-pointer">
+                <input type="file" id="fileInput" class="hidden">
+                <p id="fileName" class="text-slate-300">Arrastra tu archivo aquí o haz clic</p>
+            </div>
+            <button onclick="uploadFile()" id="uploadBtn" class="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-3 rounded-lg transition-all disabled:opacity-50">
+                Subir Archivo
+            </button>
+        </div>
+
+        <hr class="border-slate-700">
+
+        <div class="space-y-4">
+            <h2 class="text-lg font-semibold text-slate-200">¿Tienes un ID de descarga?</h2>
+            <div class="flex space-x-2">
+                <input type="text" id="downloadId" placeholder="Pega el UUID aquí..." 
+                    class="flex-1 bg-slate-700 border border-slate-600 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                <button onclick="downloadFile()" class="bg-green-600 hover:bg-green-500 px-4 py-2 rounded-lg font-bold transition-all">
+                    Obtener
+                </button>
+            </div>
+        </div>
+
+        <div id="status" class="hidden p-4 rounded-lg text-sm font-mono break-all"></div>
+    </div>
+
+    <script>
+        const API_BASE = "http://localhost:8080";
+        const fileInput = document.getElementById('fileInput');
+        const dropzone = document.getElementById('dropzone');
+        const statusDiv = document.getElementById('status');
+
+        // Manejo de Dropzone
+        dropzone.onclick = () => fileInput.click();
+        fileInput.onchange = () => {
+            if (fileInput.files.length > 0) {
+                document.getElementById('fileName').innerText = fileInput.files[0].name;
+            }
+        };
+
+        // Función para subir
+        async function uploadFile() {
+            const file = fileInput.files[0];
+            if (!file) return alert("Selecciona un archivo primero");
+
+            const formData = new FormData();
+            formData.append("file", file);
+
+            showStatus("Subiendo...", "blue");
+
+            try {
+                const response = await fetch(`${API_BASE}/upload`, {
+                    method: 'POST',
+                    body: formData
+                });
+
+                const data = await response.json();
+                if (response.ok) {
+                    // Accedemos a data.data.id porque así lo envías en el JSON de Go
+                    const fileId = data.data.id; 
+                    showStatus(`✅ Éxito! ID: ${fileId}`, "green");
+                    document.getElementById('downloadId').value = fileId;
+                } else {
+                    showStatus(`❌ Error: ${data.error || 'Fallo en subida'}`, "red");
+                }
+            } catch (err) {
+                showStatus("❌ Error de conexión con el backend", "red");
+            }
+        }
+
+        // Función para descargar
+        async function downloadFile() {
+            const id = document.getElementById('downloadId').value.trim();
+            if (!id) return alert("Ingresa un ID");
+
+            showStatus("Generando link...", "blue");
+
+            try {
+                const response = await fetch(`${API_BASE}/download/${id}`);
+                const data = await response.json();
+
+                if (response.ok) {
+                    showStatus("¡Link generado! Abriendo...", "green");
+                    // Abrimos la URL firmada en una nueva pestaña
+                    window.open(data.download_url, '_blank');
+                } else {
+                    showStatus(`❌ ${data.error || 'No encontrado'}`, "red");
+                }
+            } catch (err) {
+                showStatus("❌ Error de conexión", "red");
+            }
+        }
+
+        function showStatus(msg, color) {
+            statusDiv.classList.remove('hidden', 'bg-blue-900', 'bg-green-900', 'bg-red-900');
+            statusDiv.classList.add(`bg-${color}-900`);
+            statusDiv.innerText = msg;
+        }
+    </script>
+</body>
+</html>
