@@ -75,8 +75,13 @@ func main() {
 	cleanWorker := worker.NewCleanupWorker(repo, storageSvc)
 	cleanWorker.Start(context.Background()) // Esto arranca el bucle en segundo plano
 	// 8. Arrancar el servidor
-	log.Println("🚀 API corriendo en http://localhost:8080")
-	if err := r.Run(":8080"); err != nil {
+	port := os.Getenv("PORT")
+	if port == "" {
+		port = "8080" // Local fallback
+	}
+	log.Println("🚀 API corriendo en http://localhost:" + port)
+	if err := r.Run(":" + port); err != nil {
 		log.Fatalf("❌ No se pudo arrancar el servidor: %v", err)
 	}
+
 }
