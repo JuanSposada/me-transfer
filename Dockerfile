@@ -1,5 +1,5 @@
 # Fase de construcción
-FROM golang:1.25-alpine AS builder
+FROM golang:1.25.0-alpine AS builder
 
 # Instalamos git por si alguna dependencia lo necesita
 RUN apk add --no-cache git

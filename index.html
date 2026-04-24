@@ -11,7 +11,7 @@
     <div class="max-w-md w-full space-y-8 bg-slate-800 p-8 rounded-2xl shadow-2xl border border-slate-700">
         <div class="text-center">
             <h1 class="text-4xl font-bold text-blue-400">Me-Transfer</h1>
-            <p class="text-slate-400 mt-2">Sube archivos (max 5MB) y compártelos.</p>
+            <p class="text-slate-400 mt-2">Sube archivos y obtén descarga directa al instante.</p>
         </div>
 
         <div class="space-y-4">
@@ -20,96 +20,113 @@
                 <p id="fileName" class="text-slate-300">Arrastra tu archivo aquí o haz clic</p>
             </div>
             <button onclick="uploadFile()" id="uploadBtn" class="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-3 rounded-lg transition-all disabled:opacity-50">
-                Subir Archivo
+                Subir y Obtener Link
             </button>
         </div>
 
         <hr class="border-slate-700">
 
-        <div class="space-y-4">
-            <h2 class="text-lg font-semibold text-slate-200">¿Tienes un ID de descarga?</h2>
+        <div id="resultSection" class="hidden space-y-4">
+            <h2 class="text-lg font-semibold text-slate-200">Link de descarga directa:</h2>
             <div class="flex space-x-2">
-                <input type="text" id="downloadId" placeholder="Pega el UUID aquí..." 
-                    class="flex-1 bg-slate-700 border border-slate-600 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
-                <button onclick="downloadFile()" class="bg-green-600 hover:bg-green-500 px-4 py-2 rounded-lg font-bold transition-all">
-                    Obtener
+                <input type="text" id="shareLink" readonly 
+                    class="flex-1 bg-slate-700 border border-slate-600 rounded-lg px-4 py-2 text-xs focus:outline-none text-blue-300">
+                <button onclick="copyLink()" class="bg-blue-600 hover:bg-blue-500 px-4 py-2 rounded-lg font-bold transition-all text-xs">
+                    Copiar
                 </button>
             </div>
+            <p class="text-[10px] text-slate-500 text-center uppercase">Este link es de acceso directo y expira en 1 hora</p>
         </div>
 
-        <div id="status" class="hidden p-4 rounded-lg text-sm font-mono break-all"></div>
+        <div id="status" class="hidden p-4 rounded-lg text-sm font-mono break-all text-center"></div>
     </div>
 
     <script>
-        const API_BASE = "http://localhost:8080";
+        // Si corres en local mantén localhost:8080
+        // Si vas a Railway, cambia esto por tu URL de producción
+        const API_BASE = "http://localhost:8080"; 
+        
         const fileInput = document.getElementById('fileInput');
         const dropzone = document.getElementById('dropzone');
         const statusDiv = document.getElementById('status');
+        const resultSection = document.getElementById('resultSection');
+        const shareLinkInput = document.getElementById('shareLink');
+        const uploadBtn = document.getElementById('uploadBtn');
 
-        // Manejo de Dropzone
+        // Manejo del click en la zona de drop
         dropzone.onclick = () => fileInput.click();
+        
+        // Mostrar nombre del archivo seleccionado
         fileInput.onchange = () => {
             if (fileInput.files.length > 0) {
                 document.getElementById('fileName').innerText = fileInput.files[0].name;
             }
         };
 
-        // Función para subir
         async function uploadFile() {
             const file = fileInput.files[0];
-            if (!file) return alert("Selecciona un archivo primero");
+            if (!file) return alert("Por favor, selecciona un archivo.");
 
             const formData = new FormData();
             formData.append("file", file);
 
-            showStatus("Subiendo...", "blue");
+            // UI feedback
+            showStatus("Subiendo y generando enlace...", "blue");
+            uploadBtn.disabled = true;
+            resultSection.classList.add('hidden');
 
             try {
+                // LLAMADA ÚNICA AL POST
                 const response = await fetch(`${API_BASE}/upload`, {
                     method: 'POST',
                     body: formData
                 });
 
                 const data = await response.json();
+                
                 if (response.ok) {
-                    // Accedemos a data.data.id porque así lo envías en el JSON de Go
-                    const fileId = data.data.id; 
-                    showStatus(`✅ Éxito! ID: ${fileId}`, "green");
-                    document.getElementById('downloadId').value = fileId;
+                    // EXTRAEMOS EL LINK DIRECTO QUE VIENE EN EL DATA DEL UPLOAD
+                    const linkDirecto = data.data.download_url;
+                    
+                    if (linkDirecto) {
+                        shareLinkInput.value = linkDirecto;
+                        resultSection.classList.remove('hidden');
+                        showStatus("✅ ¡Archivo listo para compartir!", "green");
+                    } else {
+                        showStatus("⚠️ Archivo subido, pero no se recibió el link directo.", "yellow");
+                        console.error("Respuesta incompleta:", data);
+                    }
                 } else {
-                    showStatus(`❌ Error: ${data.error || 'Fallo en subida'}`, "red");
+                    showStatus(`❌ Error: ${data.error || 'No se pudo subir'}`, "red");
                 }
             } catch (err) {
-                showStatus("❌ Error de conexión con el backend", "red");
+                showStatus("❌ Error de red: No se pudo conectar con el servidor", "red");
+                console.error(err);
+            } finally {
+                uploadBtn.disabled = false;
             }
         }
 
-        // Función para descargar
-        async function downloadFile() {
-            const id = document.getElementById('downloadId').value.trim();
-            if (!id) return alert("Ingresa un ID");
-
-            showStatus("Generando link...", "blue");
-
-            try {
-                const response = await fetch(`${API_BASE}/download/${id}`);
-                const data = await response.json();
-
-                if (response.ok) {
-                    showStatus("¡Link generado! Abriendo...", "green");
-                    // Abrimos la URL firmada en una nueva pestaña
-                    window.open(data.download_url, '_blank');
-                } else {
-                    showStatus(`❌ ${data.error || 'No encontrado'}`, "red");
-                }
-            } catch (err) {
-                showStatus("❌ Error de conexión", "red");
-            }
+        // Función para copiar link al portapapeles
+        function copyLink() {
+            shareLinkInput.select();
+            document.execCommand('copy');
+            alert("¡Link copiado! Ya puedes enviarlo.");
         }
 
+        // Función para mostrar estados visuales
         function showStatus(msg, color) {
-            statusDiv.classList.remove('hidden', 'bg-blue-900', 'bg-green-900', 'bg-red-900');
-            statusDiv.classList.add(`bg-${color}-900`);
+            statusDiv.classList.remove('hidden', 'bg-blue-900', 'bg-green-900', 'bg-red-900', 'bg-yellow-900');
+            
+            // Map de colores simples
+            const colors = {
+                "blue": "bg-blue-900",
+                "green": "bg-green-900",
+                "red": "bg-red-900",
+                "yellow": "bg-yellow-900"
+            };
+            
+            statusDiv.classList.add(colors[color] || "bg-slate-700");
             statusDiv.innerText = msg;
         }
     </script>

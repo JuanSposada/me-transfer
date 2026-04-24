@@ -2,6 +2,8 @@ package postgres
 
 import (
 	"context"
+	"log"
+	"os"
 
 	"github.com/JuanSposada/me-transfer/internal/models"
 
@@ -75,6 +77,8 @@ func (r *PostgresRepo) GetExpiredFiles(ctx context.Context) ([]models.FileMetada
 
 	rows, err := r.Pool.Query(ctx, query)
 	if err != nil {
+		log.Printf("DEBUG DB ERROR: %v", err)
+		log.Printf("DEBUG URI EN USO: %s", os.Getenv("POSTGRES_URL"))
 		return nil, err
 	}
 	defer rows.Close()
