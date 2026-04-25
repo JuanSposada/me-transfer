@@ -28,7 +28,7 @@ Arquitectura de un solo paso: El backend procesa la subida, el registro y la gen
 
 
 
-🔄 Flujo de Funcionamiento
+## 🔄 Flujo de Funcionamiento
 - Selección: El usuario elige un archivo (máximo 5MB).
 
 - Procesamiento: El cliente envía el archivo al endpoint /upload.
@@ -45,6 +45,7 @@ Arquitectura de un solo paso: El backend procesa la subida, el registro y la gen
 
 - Finalización: El usuario copia el enlace y puede compartirlo. El receptor descarga el archivo al instante al abrir el link.
 
+![alt text](image.png)
 ### Justificación de la Arquitectura
 Usaremos PostgreSQL como fuente de verdad rápida para consultas frecuentes (estado de tokens, expiración) debido a su baja latencia. Supabase se justifica como:
 
