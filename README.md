@@ -1,3 +1,50 @@
+# Me-Transfer 🚀 | Sistema de Transferencia de Archivos Seguros
+
+Me-Transfer es una aplicación web inspirada en WeTransfer que permite a los usuarios subir archivos y generar enlaces de descarga directa de forma instantánea. El sistema utiliza una arquitectura moderna diseñada para la velocidad y la seguridad.
+
+## 🛠 Tecnologías Utilizadas
+Lenguaje: Go (Golang) 1.21+
+
+Framework Web: Gin Gonic (Alto rendimiento)
+
+Base de Datos: PostgreSQL (Alojado en Supabase)
+
+Almacenamiento en la Nube: Supabase Storage (Buckets)
+
+Frontend: HTML5, JavaScript Vanilla y Tailwind CSS para el diseño
+
+Despliegue: Railway (PaaS)
+
+## 🌟 Características Principales
+Subida Optimizada: Carga de archivos eficiente hacia el Storage de Supabase.
+
+Enlaces Firmados (Signed URLs): Se generan URLs temporales y seguras que protegen la privacidad de los archivos.
+
+Base de Datos Relacional: Cada archivo cuenta con un UUID único y metadatos registrados en Postgres.
+
+Descarga Directa: El sistema entrega un enlace final que dispara la descarga automáticamente sin necesidad de pasos intermedios.
+
+Arquitectura de un solo paso: El backend procesa la subida, el registro y la generación del link en una sola transacción para mejorar la experiencia de usuario.
+
+
+
+🔄 Flujo de Funcionamiento
+- Selección: El usuario elige un archivo (máximo 5MB).
+
+- Procesamiento: El cliente envía el archivo al endpoint /upload.
+
+- Backend Go:
+
+- Sube el archivo al Bucket de Supabase.
+
+- Genera un link de descarga firmado (Signed URL).
+
+- Guarda los metadatos (nombre, tamaño, tipo) en Postgres.
+
+- Respuesta: El servidor devuelve el link de descarga directa en el JSON de éxito.
+
+- Finalización: El usuario copia el enlace y puede compartirlo. El receptor descarga el archivo al instante al abrir el link.
+
 ### Justificación de la Arquitectura
 Usaremos PostgreSQL como fuente de verdad rápida para consultas frecuentes (estado de tokens, expiración) debido a su baja latencia. Supabase se justifica como:
 
